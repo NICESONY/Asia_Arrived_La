@@ -4,4 +4,6 @@
 
 ## [노션링크]()
 
-## Dataset : 
+## [Dataset_AIHub_항만 구조물 영상](https://universe.roboflow.com/smart-helmet-infe0/ship2-sfxrh/dataset/1)
+## [Dataset_Kaggle - Ship Detection from Aerial Images](https://www.aihub.or.kr/aihubdata/data/view.do?currMenu=&topMenu=&aihubDataSe=data&dataSetSn=199)
+## [Dataset_Ships Image Dataset](https://www.kaggle.com/datasets/vinayakshanawad/ships-dataset)
