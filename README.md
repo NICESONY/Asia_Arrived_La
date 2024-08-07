@@ -11,6 +11,6 @@
 
 ## 참고 자료 
 
-### [Fgsm](https://github.com/locuslab/fast_adversarial)
+### [Fast adversarial training using FGSM](https://github.com/locuslab/fast_adversarial)
 
 
