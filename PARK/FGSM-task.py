@@ -1,115 +1,107 @@
 import numpy as np
-import os
 import cv2
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
-from pyimagesearch.fgsm import generate_image_adversary
+import matplotlib.pyplot as plt
+from tensorflow.keras import datasets, layers, models
+import os
+import random
+import tensorflow as tf
 
+# 클래스 이름
+ClassNames = ['Aircraft Carrier', 'Bulkers', 'Car Carrier', 'Container Ship', 'Cruise', 'DDG', 'Recreational', 'Sailboat', 'Submarine', 'Tug']
 
-# 데이터셋 경로 설정
-train_dir = os.path.join('PARK', 'dataset', 'Ships dataset', 'train', 'images')
+# 데이터 경로 설정
+def load_data(image_path, label_path):
+    data = []
+    for file in os.listdir(image_path):
+        file_p = os.path.join(image_path, file)
+        image = cv2.imread(file_p)
+        image = cv2.resize(image, (64, 64), interpolation=cv2.INTER_LINEAR)
+        data.append(image / 255.0)  # 정규화
+    labels = []
+    for file in os.listdir(label_path):
+        file_p = os.path.join(label_path, file)
+        with open(file_p, "r") as f:
+            labels.append(int(f.read(1)))
+    return np.array(data), np.array(labels)
 
-val_dir = os.path.join('PARK', 'dataset', 'Ships dataset', 'valid', 'images')
+# 훈련 데이터 로드
+base_path = 'C:/dev/workspace/sec-ai/Asia_Arrived_La/Data/Ships_dataset/train'
+data_image = os.path.join(base_path, 'images')
+data_label = os.path.join(base_path, 'labels')
+images, labels = load_data(data_image, data_label)
 
-
-# ImageDataGenerator 설정
-train_datagen = ImageDataGenerator(rescale=1./255)
-val_datagen = ImageDataGenerator(rescale=1./255)
-
-# 데이터 로드
-train_generator = train_datagen.flow_from_directory(
-    train_dir,
-    target_size=(224, 224),
-    batch_size=32,
-    class_mode='categorical'
-)
-
-val_generator = val_datagen.flow_from_directory(
-    val_dir,
-    target_size=(224, 224),
-    batch_size=32,
-    class_mode='categorical'
-)
+# 검증 데이터 로드
+base_path_valid = 'C:/dev/workspace/sec-ai/Asia_Arrived_La/Data/Ships_dataset/valid'
+data_image_valid = os.path.join(base_path_valid, 'images')
+data_label_valid = os.path.join(base_path_valid, 'labels')
+validationimages, validationlabels = load_data(data_image_valid, data_label_valid)
 
 # 모델 정의
-model = Sequential([
-    Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)),
-    MaxPooling2D(pool_size=(2, 2)),
-    Flatten(),
-    Dense(128, activation='relu'),
-    Dense(10, activation='softmax')  # 10개 클래스
+model = models.Sequential([
+    layers.Conv2D(64, (3, 3), activation='relu', input_shape=(64, 64, 3)),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(128, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(128, (3, 3), activation='relu'),
+    layers.Flatten(),
+    layers.Dense(128, activation='relu'),
+    layers.Dense(64, activation='relu'),
+    layers.Dense(10, activation='softmax')
 ])
 
-# 모델 컴파일
-print("[INFO] compiling model...")
-opt = Adam(learning_rate=1e-3)
-model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
+model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
 # 모델 훈련
-print("[INFO] training network...")
-model.fit(train_generator, validation_data=val_generator, epochs=10, verbose=1)
+model.fit(images, labels, batch_size=32, epochs=20, validation_data=(validationimages, validationlabels))
 
-# 적대적 훈련 함수 정의
-def adversarial_training(model, train_generator, val_generator, eps=0.01, epochs=10):
-    for epoch in range(epochs):
-        print(f"[INFO] Starting epoch {epoch + 1}/{epochs}...")
-        for i in range(len(train_generator)):
-            # 배치 데이터 가져오기
-            x_batch, y_batch = train_generator.next()
+# 모델 저장
+model.save('ShipClassifierV1.keras')  # 권장되는 포맷으로 저장
 
-            # 적대적 예제 생성
-            x_adversarial = generate_image_adversary(model, x_batch, y_batch, eps=eps)
+# 모델 로드
+model = models.load_model('ShipClassifierV1.keras')
 
-            # 원본 이미지와 적대적 이미지를 결합
-            combined_images = np.vstack([x_batch, x_adversarial])
-            combined_labels = np.vstack([y_batch, y_batch])
+# FGSM 공격 생성 함수
+def fgsm_attack(image, label, model, epsilon):
+    image = tf.convert_to_tensor(image[None, ...])  # 배치 차원 추가
+    label = tf.convert_to_tensor(label[None])  # 배치 차원 추가
+    
+    with tf.GradientTape() as tape:
+        tape.watch(image)
+        prediction = model(image, training=False)
+        loss = tf.keras.losses.sparse_categorical_crossentropy(label, prediction)
+    
+    gradient = tape.gradient(loss, image)
+    signed_grad = tf.sign(gradient)
+    adversarial_image = image + epsilon * signed_grad
+    adversarial_image = tf.clip_by_value(adversarial_image, 0, 1)
+    return adversarial_image[0].numpy()  # 배치 차원 제거 및 numpy 배열로 변환
 
-            # 결합된 데이터로 모델 학습
-            model.train_on_batch(combined_images, combined_labels)
+# 테스트 데이터 로드
+base_path_test = 'C:/dev/workspace/sec-ai/Asia_Arrived_La/Data/Ships_dataset/test'
+data_image_test = os.path.join(base_path_test, 'images')
+data_label_test = os.path.join(base_path_test, 'labels')
+testimages, testlabels = load_data(data_image_test, data_label_test)
 
-        # 에폭이 끝날 때마다 검증 데이터로 평가
-        val_loss, val_acc = model.evaluate(val_generator, verbose=0)
-        print(f"[INFO] Validation loss: {val_loss:.4f}, Validation accuracy: {val_acc:.4f}")
+# FGSM 공격 적용
+epsilon = 0.1  # 공격 강도
+adversarial_images = np.array([fgsm_attack(image, label, model, epsilon) for image, label in zip(testimages, testlabels)])
 
-# 적대적 훈련 수행
-adversarial_training(model, train_generator, val_generator, eps=0.01, epochs=10)
+# 원본 및 공격된 이미지 비교
+for i in range(4):
+    plt.subplot(2, 2, i + 1)
+    plt.xticks([])
+    plt.yticks([])
+    plt.imshow(adversarial_images[i], cmap=plt.cm.binary)
+    pred = model.predict(np.array([adversarial_images[i]]))  # 배치 차원 추가
+    index = np.argmax(pred)
+    plt.xlabel(f"Actual = {ClassNames[testlabels[i]]} \n Predicted = {ClassNames[index]}")
+plt.show()
 
-# 적대적 샘플 생성 및 시각화
-for i in np.random.choice(np.arange(0, len(val_generator)), size=(10,)):
-    # 현재 이미지와 레이블 가져오기
-    x_batch, y_batch = val_generator.next()
-    image = x_batch[i]
-    label = y_batch[i]
+# 모델 평가
+loss, accuracy = model.evaluate(testimages, testlabels)
+print(f"Loss on test data: {loss}")
+print(f"Accuracy on test data: {accuracy}")
 
-    # 적대적 샘플 생성 및 예측
-    adversary = generate_image_adversary(model, image.reshape(1, 224, 224, 3), label, eps=0.1)
-    pred = model.predict(adversary)
-
-    # 적대적 샘플을 시각화
-    adversary = adversary.reshape((224, 224, 3)) * 255
-    adversary = np.clip(adversary, 0, 255).astype("uint8")
-    image = image * 255
-    image = image.astype("uint8")
-
-    # 이미지를 크기 조정하여 더 잘 시각화
-    image = cv2.resize(image, (224, 224))
-    adversary = cv2.resize(adversary, (224, 224))
-
-    # 원본 이미지와 적대적 이미지에 대한 예측 레이블 결정
-    imagePred = label.argmax()
-    adversaryPred = pred[0].argmax()
-
-    # 이미지와 적대적 이미지에 예측 레이블 표시
-    color = (0, 255, 0)  # 기본 색상은 초록색
-    if imagePred != adversaryPred:
-        color = (0, 0, 255)  # 예측이 다르면 빨간색으로 변경
-
-    cv2.putText(image, str(imagePred), (2, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.95, (0, 255, 0), 2)
-    cv2.putText(adversary, str(adversaryPred), (2, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.95, color, 2)
-
-    # 원본 이미지와 적대적 이미지를 수평으로 스택하여 비교
-    output = np.hstack([image, adversary])
-    cv2.imshow("FGSM Adversarial Images", output)
-    cv2.waitKey(0)
+loss, accuracy_adversarial = model.evaluate(adversarial_images, testlabels)
+print(f"Loss on adversarial data: {loss}")
+print(f"Accuracy on adversarial data: {accuracy_adversarial}")
