@@ -132,3 +132,5 @@ print(f"Accuracy on test data after adversarial training: {accuracy}")
 loss, accuracy_bim_adversarial = model.evaluate(bim_adversarial_images, testlabels)
 print(f"Loss on BIM adversarial data after adversarial training: {loss}")
 print(f"Accuracy on BIM adversarial data after adversarial training: {accuracy_bim_adversarial}")
+
+#결과---> 확실히 BIM 과 FGSM 학습을 통해 적대적 예제 학습이 됨
