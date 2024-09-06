@@ -76,23 +76,34 @@ def fgsm_attack(image, label, model, epsilon):
     adversarial_image = tf.clip_by_value(adversarial_image, 0, 1)
     return adversarial_image[0].numpy()  # 배치 차원 제거 및 numpy 배열로 변환
 
+# BIM 공격 생성 함수
+def bim_attack(image, label, model, epsilon, alpha, iterations):
+    adversarial_image = image
+    for i in range(iterations):
+        adversarial_image = fgsm_attack(adversarial_image, label, model, alpha)
+        perturbation = np.clip(adversarial_image - image, -epsilon, epsilon)
+        adversarial_image = np.clip(image + perturbation, 0, 1)
+    return adversarial_image
+
 # 테스트 데이터 로드
 base_path_test = 'C:/dev/workspace/sec-ai/Asia_Arrived_La/Data/Ships_dataset/test'
 data_image_test = os.path.join(base_path_test, 'images')
 data_label_test = os.path.join(base_path_test, 'labels')
 testimages, testlabels = load_data(data_image_test, data_label_test)
 
-# FGSM 공격 적용
+# BIM 공격 적용
 epsilon = 0.1  # 공격 강도
-adversarial_images = np.array([fgsm_attack(image, label, model, epsilon) for image, label in zip(testimages, testlabels)])
+alpha = 0.01  # BIM의 단계 크기
+iterations = 10  # BIM 반복 횟수
+bim_adversarial_images = np.array([bim_attack(image, label, model, epsilon, alpha, iterations) for image, label in zip(testimages, testlabels)])
 
-# 원본 및 공격된 이미지 비교
+# 원본 및 BIM 공격된 이미지 비교
 for i in range(4):
     plt.subplot(2, 2, i + 1)
     plt.xticks([])
     plt.yticks([])
-    plt.imshow(adversarial_images[i], cmap=plt.cm.binary)
-    pred = model.predict(np.array([adversarial_images[i]]))  # 배치 차원 추가
+    plt.imshow(bim_adversarial_images[i], cmap=plt.cm.binary)
+    pred = model.predict(np.array([bim_adversarial_images[i]]))  # 배치 차원 추가
     index = np.argmax(pred)
     plt.xlabel(f"Actual = {ClassNames[testlabels[i]]} \n Predicted = {ClassNames[index]}")
 plt.show()
@@ -102,6 +113,24 @@ loss, accuracy = model.evaluate(testimages, testlabels)
 print(f"Loss on test data: {loss}")
 print(f"Accuracy on test data: {accuracy}")
 
-loss, accuracy_adversarial = model.evaluate(adversarial_images, testlabels)
-print(f"Loss on adversarial data: {loss}")
-print(f"Accuracy on adversarial data: {accuracy_adversarial}")
+loss, accuracy_bim_adversarial = model.evaluate(bim_adversarial_images, testlabels)
+print(f"Loss on BIM adversarial data: {loss}")
+print(f"Accuracy on BIM adversarial data: {accuracy_bim_adversarial}")
+
+# Adversarial Training을 위한 데이터 생성
+adv_images = np.concatenate((images, bim_adversarial_images))
+adv_labels = np.concatenate((labels, testlabels))
+
+# 모델 다시 훈련 (Adversarial Training)
+model.fit(adv_images, adv_labels, batch_size=32, epochs=10, validation_data=(validationimages, validationlabels))
+
+# Adversarial Training 후 모델 평가
+loss, accuracy = model.evaluate(testimages, testlabels)
+print(f"Loss on test data after adversarial training: {loss}")
+print(f"Accuracy on test data after adversarial training: {accuracy}")
+
+loss, accuracy_bim_adversarial = model.evaluate(bim_adversarial_images, testlabels)
+print(f"Loss on BIM adversarial data after adversarial training: {loss}")
+print(f"Accuracy on BIM adversarial data after adversarial training: {accuracy_bim_adversarial}")
+
+#결과---> 확실히 BIM 과 FGSM 학습을 통해 적대적 예제 학습이 됨
