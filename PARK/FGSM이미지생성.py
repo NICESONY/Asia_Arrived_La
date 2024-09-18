@@ -19,14 +19,14 @@ def generate_image_adversary(model, image, label, eps=0.1):
         return adversary.numpy()
 
 # 저장 경로 설정
-base_path = "./fgsmImage"  # 실제 경로로 수정하세요
+base_path = "./PARK/fgsmImage"  
 image_save_path = os.path.join(base_path, 'images')
 label_save_path = os.path.join(base_path, 'labels')
 os.makedirs(image_save_path, exist_ok=True)
 os.makedirs(label_save_path, exist_ok=True)
 
 # 모델 로드
-model_path = 'ShipClassifierV1.h5'  # 실제 모델 파일 경로로 수정
+model_path = 'ShipClassifierV1.h5'  
 if not os.path.exists(model_path):
     raise FileNotFoundError(f"모델 파일이 존재하지 않습니다: {model_path}")
 

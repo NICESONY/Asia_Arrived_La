@@ -55,7 +55,7 @@ model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=
 model.fit(images, labels, batch_size=32, epochs=20, validation_data=(validationimages, validationlabels))
 
 # 모델 저장
-model.save('ShipClassifierV1.keras')  # 권장되는 포맷으로 저장
+model.save('ShipClassifierV1.keras') 
 
 # 모델 로드
 model = models.load_model('ShipClassifierV1.keras')
