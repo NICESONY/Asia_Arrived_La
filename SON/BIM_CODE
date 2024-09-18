@@ -1,0 +1,52 @@
+import tensorflow as tf
+
+def bim_attack(model, image, label, epsilon, alpha, num_iterations):
+    adv_image = tf.identity(image)  # 초기 이미지를 복사
+    for i in range(num_iterations):
+        with tf.GradientTape() as tape:
+            tape.watch(adv_image)
+            prediction = model(adv_image)
+            loss = tf.keras.losses.sparse_categorical_crossentropy(label, prediction)
+        
+        # 손실에 대한 입력 이미지의 기울기 계산
+        gradient = tape.gradient(loss, adv_image)
+        
+        # 기울기의 부호를 따라 작은 스텝(alpha)을 더함
+        adv_image = adv_image + alpha * tf.sign(gradient)
+        
+        # 클리핑하여 이미지가 [0, 1] 범위 내에 있도록 제한
+        adv_image = tf.clip_by_value(adv_image, 0, 1)
+
+    return adv_image
+
+
+
+
+    def pgd_attack(model, image, label, epsilon, alpha, num_iterations):
+    adv_image = tf.identity(image)  # 초기 이미지를 복사
+    original_image = tf.identity(image)  # 원본 이미지 유지
+    
+    for i in range(num_iterations):
+        with tf.GradientTape() as tape:
+            tape.watch(adv_image)
+            prediction = model(adv_image)
+            loss = tf.keras.losses.sparse_categorical_crossentropy(label, prediction)
+        
+        # 손실에 대한 입력 이미지의 기울기 계산
+        gradient = tape.gradient(loss, adv_image)
+        
+        # 기울기의 부호를 따라 작은 스텝(alpha)을 더함
+        adv_image = adv_image + alpha * tf.sign(gradient)
+        
+        # 교란이 epsilon-볼 내에 있도록 투사
+        adv_image = tf.clip_by_value(adv_image, original_image - epsilon, original_image + epsilon)
+        adv_image = tf.clip_by_value(adv_image, 0, 1)  # 유효 범위 내로 클리핑
+
+    return adv_image
+
+
+
+"""
+BIM: 기울기를 기반으로 적대적 교란을 여러 번 적용하며, 교란 후 이미지를 클리핑하여 유효한 픽셀 범위(0-1) 내에 유지합니다.
+PGD: BIM과 유사하지만, PGD는 추가로 교란이 𝜖 ϵ-볼 내에 있도록 투사하여 교란이 특정 한계를 넘지 않도록 제한합니다. 이로 인해 공격이 보다 강력하면서도 제어된 형태로 이루어집니다."""
+
