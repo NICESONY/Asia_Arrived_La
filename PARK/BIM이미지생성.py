@@ -40,7 +40,7 @@ os.makedirs(image_save_path, exist_ok=True)
 os.makedirs(label_save_path, exist_ok=True)
 
 # 모델 로드
-model_path = 'ShipClassifierV1.h5'  
+model_path = 'ShipClassifierV1.h5'  # 실제 모델 파일 경로로 수정
 if not os.path.exists(model_path):
     raise FileNotFoundError(f"모델 파일이 존재하지 않습니다: {model_path}")
 
@@ -58,7 +58,7 @@ selected_labels = []
 for i in range(2000):  # 테스트 이미지가 2000장 있다고 가정
     image = images[i]
     label = labels[i]
-    adversary = generate_image_adversary_bim(model, image.reshape(1, 64, 64, 3), np.array([label]), eps=0.1, alpha=0.01, num_iter=20)
+    adversary = generate_image_adversary_bim(model, image.reshape(1, 64, 64, 3), np.array([label]), eps=0.1, alpha=0.05, num_iter=16)
     
     adversarial_examples.append(adversary[0])  # [0] 인덱스를 사용하여 (64, 64, 3) 형상으로 변환
     selected_labels.append(label)
