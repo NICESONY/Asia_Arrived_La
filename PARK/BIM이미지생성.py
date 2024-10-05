@@ -46,10 +46,15 @@ if not os.path.exists(model_path):
 
 model = tf.keras.models.load_model(model_path)
 
+"""
+## 해당 부분 실제 데이터 값으로 수정해야함
+
+
 # 이미지와 라벨 데이터 준비 (여기서는 `images`와 `labels`가 이미 로드되어 있다고 가정합니다.)
 # 예시 데이터 로드 (실제 데이터 로드 코드로 교체 필요)
 images = np.random.rand(2000, 64, 64, 3)  # 실제 이미지 데이터로 교체
 labels = np.random.randint(0, 10, size=(2000,))  # 실제 라벨 데이터로 교체
+"""
 
 adversarial_examples = []
 selected_labels = []
